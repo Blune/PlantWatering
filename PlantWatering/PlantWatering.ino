@@ -1,5 +1,6 @@
 int soilMoistureValue = 0;
 int soilMoisturePercent = 0;
+int waterLevel = 0;
 
 //Sensor 1
 const int SoilMoistureSensor1Pin = A0;
@@ -22,6 +23,10 @@ const int SoilMoistureSensor4Pin = A3;
 const int AirValueSensor4 = 570;   
 const int WaterValueSensor4 = 411;  
 
+//Sensor 5 Water level check
+const int WaterLevelSensorPin = A6;
+const int MinWaterValueWaterLevelSensor = 550;  
+
 //Waterpump
 const int PinPump1 = 9;
 const int PinPump2 = 7;
@@ -43,13 +48,15 @@ void loop()
 
 void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
 {
-  soilMoistureValue = readSoilMoisture(SoilMoistureSensor1Pin);
+  soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
   soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
   
   Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
-  
-  if(soilMoisturePercent < moisturePercentForWatering)
-  {
+
+  //Moved for testing purposes before if statement
+  bool isEnoughWater = isEnoughWaterInTank();
+  if(soilMoisturePercent < moisturePercentForWatering && isEnoughWater)
+  {    
     Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
     activatePump(PinPump1);    
     delay(2000);
@@ -58,7 +65,23 @@ void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump,
   }  
 }
 
-int readSoilMoisture(int pin)
+bool isEnoughWaterInTank()
+{
+  waterLevel = readSensor(WaterLevelSensorPin);
+  Serial.println("measured water level: "+ String(waterLevel));
+  bool isEnoughWater = waterLevel < MinWaterValueWaterLevelSensor;
+  if(isEnoughWater && digitalRead(LED_BUILTIN) == HIGH)
+  {
+    digitalWrite(LED_BUILTIN, LOW); 
+  }
+  else if(!isEnoughWater && digitalRead(LED_BUILTIN) == LOW)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);     
+  }
+  return isEnoughWater;
+}
+
+int readSensor(int pin)
 {
   return analogRead(pin);
 }

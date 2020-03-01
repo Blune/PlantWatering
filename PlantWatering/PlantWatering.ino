@@ -2,9 +2,10 @@ int soilMoistureValue = 0;
 int soilMoisturePercent = 0;
 
 //Sensor 1
-const int SoilMoistureSensor1Pin = A4;
-const int AirValueSensor1 = 574;   
-const int WaterValueSensor1 = 417;  
+const int SoilMoistureSensor1Pin = A0;
+const int AirValueSensor1 = 880;   
+const int WaterValueSensor1 = 565;  
+const int SoilMoistureForWatering1 = 30;
 
 //Sensor 2
 const int SoilMoistureSensor2Pin = A3;
@@ -22,37 +23,34 @@ const int AirValueSensor4 = 570;
 const int WaterValueSensor4 = 411;  
 
 //Waterpump
-const int PinPump1 = 12;
-const int PinPump2 = 10;
-const int PinPump3 = 11;
-const int PinPump4 = 13;
+const int PinPump1 = 9;
+const int PinPump2 = 7;
+const int PinPump3 = 8;
+const int PinPump4 = 5;
 
 void setup() {
   Serial.begin(9600); 
   pinMode(PinPump1, OUTPUT);
-  deactivatePump(PinPump1);
   pinMode(SoilMoistureSensor1Pin,INPUT);
+  deactivatePump(PinPump1);  
   //TODO: Deactivate other pins when electronic done
 }
 void loop() 
 {
-  checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, 30);  
-  checkPlant("Sensor2", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, 30);
-  checkPlant("Sensor3", SoilMoistureSensor3Pin, AirValueSensor3, WaterValueSensor3, 30);
-  checkPlant("Sensor4", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, 30);
+  checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1);  
   delay(3000);
 }
 
-void checkPlant(String name, int pin, int airValue, int waterValue, int moisturePercent)
+void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
 {
   soilMoistureValue = readSoilMoisture(SoilMoistureSensor1Pin);
   soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
   
   Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
   
-  if(soilMoisturePercent < moisturePercent)
+  if(soilMoisturePercent < moisturePercentForWatering)
   {
-    Serial.println("Moisture too low. Started water pump for 2 seconds.");
+    Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
     activatePump(PinPump1);    
     delay(2000);
     deactivatePump(PinPump1);    
@@ -67,12 +65,12 @@ int readSoilMoisture(int pin)
 
 void activatePump(int pin)
 {
-  digitalWrite(12, LOW);
+  digitalWrite(pin, HIGH);
 }
 
 void deactivatePump(int pin)
 {
-  digitalWrite(pin, HIGH);
+  digitalWrite(pin, LOW);
 }
 
 int convertToPercent(int value, int airValue, int waterValue)

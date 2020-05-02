@@ -2,11 +2,14 @@ int soilMoistureValue = 0;
 int soilMoisturePercent = 0;
 int waterLevel = 0;
 
+//Sleep
+int sleep = 30000;
+
 //Sensor 1
 const int SoilMoistureSensor1Pin = A0;
 const int AirValueSensor1 = 880;   
 const int WaterValueSensor1 = 565;  
-const int SoilMoistureForWatering1 = 30;
+const int SoilMoistureForWatering1 = 30; //basil
 
 //Sensor 2
 const int SoilMoistureSensor2Pin = A3;
@@ -25,7 +28,9 @@ const int WaterValueSensor4 = 411;
 
 //Sensor 5 Water level check
 const int WaterLevelSensorPin = A6;
-const int MinWaterValueWaterLevelSensor = 550;  
+const int AirValueWaterLevel = 883;
+const int WaterValueWaterLevel = 470;
+const int MinWaterValueWaterLevelSensor = 25; //25% of water tank
 
 //Waterpump
 const int PinPump1 = 9;
@@ -43,13 +48,21 @@ void setup() {
 void loop() 
 {
   checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1);  
-  delay(3000);
+  delay(sleep);
 }
 
 void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
 {
   soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
   soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
+
+  for(int i = 0; i <= soilMoisturePercent/10; i++)
+  {    
+    digitalWrite(LED_BUILTIN, HIGH);   
+    delay(300);
+    digitalWrite(LED_BUILTIN, LOW);   
+    delay(300);
+  }
   
   Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
 
@@ -59,7 +72,7 @@ void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump,
   {    
     Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
     activatePump(PinPump1);    
-    delay(2000);
+    delay(500);
     deactivatePump(PinPump1);    
     Serial.println("Stopped pump");
   }  
@@ -68,14 +81,17 @@ void checkPlant(String name, int pin, int airValue, int waterValue, int pinPump,
 bool isEnoughWaterInTank()
 {
   waterLevel = readSensor(WaterLevelSensorPin);
-  Serial.println("measured water level: "+ String(waterLevel));
-  bool isEnoughWater = waterLevel < MinWaterValueWaterLevelSensor;
+  int waterLevelPercent = convertToPercent(waterLevel, AirValueWaterLevel, WaterValueWaterLevel);
+  Serial.println("measured water level: "+ String(waterLevel)+"("+ String(waterLevelPercent)+ "%)");
+  bool isEnoughWater = waterLevelPercent >= MinWaterValueWaterLevelSensor;
   if(isEnoughWater && digitalRead(LED_BUILTIN) == HIGH)
   {
+     Serial.println("Enough water at level: "+ String(waterLevelPercent)+ "%"); 
     digitalWrite(LED_BUILTIN, LOW); 
   }
   else if(!isEnoughWater && digitalRead(LED_BUILTIN) == LOW)
   {
+    Serial.println("Water level is below minimum of "+ String(waterLevelPercent)+ "%"); 
     digitalWrite(LED_BUILTIN, HIGH);     
   }
   return isEnoughWater;

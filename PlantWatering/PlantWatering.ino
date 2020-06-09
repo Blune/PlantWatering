@@ -2,6 +2,7 @@
 #include <Wire.h> // Library for I2C communication
 #include <LiquidCrystal_I2C.h> // Library for LCD
 
+//Init variables
 int soilMoistureValue = 0;
 int soilMoisturePercent = 0;
 int waterLevel = 0;
@@ -37,7 +38,7 @@ const int SoilMoistureForWatering4 = 30; //basil
 const int WaterLevelSensorPin = A6;
 const int AirValueWaterLevel = 883;
 const int WaterValueWaterLevel = 470;
-const int MinWaterValueWaterLevelSensor = 25; //25% of water tank
+const int MinWaterPercentage = 25; //25% of water tank
 
 //Waterpump
 const int PinPump1 = 9;
@@ -48,25 +49,67 @@ const int PinPump4 = 5;
 //display
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x3F, 16, 4);
 
-void setup() {
+void setup() 
+{
   Serial.begin(9600); 
   pinMode(PinPump1, OUTPUT);
   pinMode(SoilMoistureSensor1Pin,INPUT);
+  
   deactivatePump(PinPump1);  
-  //TODO: Deactivate other pins when electronic done
-
+  deactivatePump(PinPump2);  
+  deactivatePump(PinPump3);  
+  deactivatePump(PinPump4);  
+  
   lcd.init();
   lcd.backlight();
 }
+
 void loop() 
-{
-  writeToDisplay(0,0, "Basil: "+ checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1)); 
-  writeToDisplay(0,1, "Minze: "+ checkPlant("Sensor2", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, PinPump2, SoilMoistureForWatering2)); 
-  //TODO: Find bug why text in third row is shifted to the right
+{  
+  writeToDisplay(0,0, "Basil:  "+ checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1)); 
+  writeToDisplay(0,1, "Minze:  "+ checkPlant("Sensor2", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, PinPump2, SoilMoistureForWatering2)); 
+    //TODO: Find bug why text in third row is shifted to the right
   writeToDisplay(-4,2, "Chilli: "+ checkPlant("Sensor3", SoilMoistureSensor3Pin, AirValueSensor3, WaterValueSensor3, PinPump3, SoilMoistureForWatering3)); 
-  writeToDisplay(-4,3, "Wurst: "+ checkPlant("Sensor4", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, PinPump4, SoilMoistureForWatering4));  
+  writeToDisplay(-4,3, "Wurst:  "+ checkPlant("Sensor4", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, PinPump4, SoilMoistureForWatering4));  
+  
   writeWaterLevelToDisplay();
   delay(sleep);
+}
+
+String checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
+{
+  soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
+  soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
+
+  Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
+
+  bool isEnoughWater = isEnoughWaterInTank();
+  if(soilMoisturePercent < moisturePercentForWatering && isEnoughWater)
+  {    
+    activatePump(pinPump);
+  }
+  return CreateLogInfo(soilMoistureValue, soilMoisturePercent);
+}
+
+void activatePumpFor500ms(int pinPump)
+{
+    Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
+    activatePump(pinPump);    
+    delay(500);
+    deactivatePump(pinPump);    
+    Serial.println("Stopped pump");  
+}
+
+bool isEnoughWaterInTank()
+{
+  int waterLevelPercent = measureWaterTankPercentage();
+  Serial.println("measured water level: "+ String(waterLevelPercent)+ "%");
+  
+  bool isEnoughWater = waterLevelPercent >= MinWaterPercentage;
+  if(isEnoughWater) Serial.println("Enough water at level: "+ String(waterLevelPercent)+ "%"); 
+  else if(!isEnoughWater)Serial.println("Water level is below minimum of "+ String(waterLevelPercent)+ "%"); 
+
+  return isEnoughWater;
 }
 
 void writeToDisplay(int col, int row, String text)
@@ -77,59 +120,35 @@ void writeToDisplay(int col, int row, String text)
 
 void writeWaterLevelToDisplay()
 {
-  waterLevel = readSensor(WaterLevelSensorPin);
-  int waterLevelPercent = convertToPercent(waterLevel, AirValueWaterLevel, WaterValueWaterLevel);
-  Serial.println("measured water level: "+ String(waterLevel)+"("+ String(waterLevelPercent)+ "%)");
-  //writeToDisplay(15,0,"▮");
-  lcd.setCursor(15, 0);
-  lcd.write(255);
-  lcd.setCursor(15, 1);
-  lcd.write(255);
-  lcd.setCursor(11, 2);
-  lcd.write(255);
-  lcd.setCursor(11, 3);
-  lcd.write(255);
+  int waterLevelPercent = measureWaterTankPercentage();
+  waterLevelPercent = waterLevelPercent; 
+  Serial.println("measured water level: " + String(waterLevelPercent)+ "%)");
+
+  lcd.setCursor(14, 0);
+  lcd.print(' ');
+  if(waterLevelPercent > 20)lcd.write(255);  
+
+  lcd.setCursor(14, 1);
+  lcd.print(' ');
+  if(waterLevelPercent > 40)lcd.write(255);  
+
   //TODO: Find bug why text in third row is shifted to the right
+  lcd.setCursor(10, 2);
+  lcd.print(' ');
+  if(waterLevelPercent > 60)lcd.write(255);
+  
+
+  //TODO: Find bug why text in third row is shifted to the right  }
+  lcd.setCursor(10, 3);
+  lcd.print(' ');
+  if(waterLevelPercent > 80)lcd.write(255);
+  
 }
 
-String checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
-{
-  soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
-  soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
-
-  Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
-
-  //Moved for testing purposes before if statement
-  bool isEnoughWater = isEnoughWaterInTank();
-  if(soilMoisturePercent < moisturePercentForWatering && isEnoughWater)
-  {    
-    Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
-    activatePump(PinPump1);    
-    delay(500);
-    deactivatePump(PinPump1);    
-    Serial.println("Stopped pump");
-  }
-
-    return CreateLogInfo(soilMoistureValue, soilMoisturePercent);
-}
-
-bool isEnoughWaterInTank()
+int measureWaterTankPercentage()
 {
   waterLevel = readSensor(WaterLevelSensorPin);
-  int waterLevelPercent = convertToPercent(waterLevel, AirValueWaterLevel, WaterValueWaterLevel);
-  Serial.println("measured water level: "+ String(waterLevel)+"("+ String(waterLevelPercent)+ "%)");
-  bool isEnoughWater = waterLevelPercent >= MinWaterValueWaterLevelSensor;
-  if(isEnoughWater && digitalRead(LED_BUILTIN) == HIGH)
-  {
-     Serial.println("Enough water at level: "+ String(waterLevelPercent)+ "%"); 
-    digitalWrite(LED_BUILTIN, LOW); 
-  }
-  else if(!isEnoughWater && digitalRead(LED_BUILTIN) == LOW)
-  {
-    Serial.println("Water level is below minimum of "+ String(waterLevelPercent)+ "%"); 
-    digitalWrite(LED_BUILTIN, HIGH);     
-  }
-  return isEnoughWater;
+  return convertToPercent(waterLevel, AirValueWaterLevel, WaterValueWaterLevel);  
 }
 
 int readSensor(int pin)
@@ -153,11 +172,10 @@ int convertToPercent(int value, int airValue, int waterValue)
 }
 
 String CreateLogInfo(int measuredValue, int percent)
-{     
-  String measuredText = String(measuredValue);
-  Serial.println("Water level is below minimum of "+ String(percent) +"% ("+ measuredText); 
-  
+{    
+  //Always return 000% for same length to override chars on display correct 
   if(percent >= 100) return "100%";
-  else if(percent <= 0) return "0%";  
-  return String(percent) +"%";
+  else if(percent <= 0) return "  0%";  
+  else if(percent < 10) return "  " + String(percent) +"%";
+  return " " + String(percent) +"%";
 }

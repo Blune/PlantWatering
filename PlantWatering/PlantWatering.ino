@@ -53,7 +53,15 @@ void setup()
 {
   Serial.begin(9600); 
   pinMode(PinPump1, OUTPUT);
+  pinMode(PinPump2, OUTPUT);
+  pinMode(PinPump3, OUTPUT);
+  pinMode(PinPump4, OUTPUT);
+  
   pinMode(SoilMoistureSensor1Pin,INPUT);
+  pinMode(SoilMoistureSensor2Pin,INPUT);
+  pinMode(SoilMoistureSensor3Pin,INPUT);
+  pinMode(SoilMoistureSensor4Pin,INPUT);
+  pinMode(WaterLevelSensorPin,INPUT);
   
   deactivatePump(PinPump1);  
   deactivatePump(PinPump2);  
@@ -66,11 +74,11 @@ void setup()
 
 void loop() 
 {  
-  writeToDisplay(0,0, "Basil:  "+ checkPlant("Sensor1", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1)); 
-  writeToDisplay(0,1, "Minze:  "+ checkPlant("Sensor2", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, PinPump2, SoilMoistureForWatering2)); 
+  writeToDisplay(0,0, checkPlant("Basil", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1)); 
+  writeToDisplay(0,1, checkPlant("Minze", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, PinPump2, SoilMoistureForWatering2)); 
     //TODO: Find bug why text in third row is shifted to the right
-  writeToDisplay(-4,2, "Chilli: "+ checkPlant("Sensor3", SoilMoistureSensor3Pin, AirValueSensor3, WaterValueSensor3, PinPump3, SoilMoistureForWatering3)); 
-  writeToDisplay(-4,3, "Wurst:  "+ checkPlant("Sensor4", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, PinPump4, SoilMoistureForWatering4));  
+  writeToDisplay(-4,2, checkPlant("Chilli", SoilMoistureSensor3Pin, AirValueSensor3, WaterValueSensor3, PinPump3, SoilMoistureForWatering3)); 
+  writeToDisplay(-4,3, checkPlant("Wurst", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, PinPump4, SoilMoistureForWatering4));  
   
   writeWaterLevelToDisplay();
   delay(sleep);
@@ -80,15 +88,11 @@ String checkPlant(String name, int pin, int airValue, int waterValue, int pinPum
 {
   soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
   soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
+  Serial.println("Measured on " + name + ": " + createPercentageText(soilMoisturePercent));  
 
-  Serial.println("Measured on " + name + ": " + CreateLogInfo(soilMoistureValue, soilMoisturePercent));  
+  if(soilMoisturePercent < moisturePercentForWatering && isEnoughWaterInTank()) activatePump(pinPump);
 
-  bool isEnoughWater = isEnoughWaterInTank();
-  if(soilMoisturePercent < moisturePercentForWatering && isEnoughWater)
-  {    
-    activatePump(pinPump);
-  }
-  return CreateLogInfo(soilMoistureValue, soilMoisturePercent);
+  return adjustNameTo8Chars(name) + createPercentageText(soilMoisturePercent);
 }
 
 void activatePumpFor500ms(int pinPump)
@@ -103,13 +107,8 @@ void activatePumpFor500ms(int pinPump)
 bool isEnoughWaterInTank()
 {
   int waterLevelPercent = measureWaterTankPercentage();
-  Serial.println("measured water level: "+ String(waterLevelPercent)+ "%");
-  
-  bool isEnoughWater = waterLevelPercent >= MinWaterPercentage;
-  if(isEnoughWater) Serial.println("Enough water at level: "+ String(waterLevelPercent)+ "%"); 
-  else if(!isEnoughWater)Serial.println("Water level is below minimum of "+ String(waterLevelPercent)+ "%"); 
-
-  return isEnoughWater;
+  Serial.println("measured water level: "+ String(waterLevelPercent)+ "% and min set to "+ String(MinWaterPercentage) + "%" );
+  return waterLevelPercent >= MinWaterPercentage;
 }
 
 void writeToDisplay(int col, int row, String text)
@@ -126,23 +125,21 @@ void writeWaterLevelToDisplay()
 
   lcd.setCursor(14, 0);
   lcd.print(' ');
-  if(waterLevelPercent > 20)lcd.write(255);  
+  if(waterLevelPercent > 80)lcd.write(255);  
 
   lcd.setCursor(14, 1);
   lcd.print(' ');
-  if(waterLevelPercent > 40)lcd.write(255);  
+  if(waterLevelPercent > 60)lcd.write(255);  
 
   //TODO: Find bug why text in third row is shifted to the right
   lcd.setCursor(10, 2);
   lcd.print(' ');
-  if(waterLevelPercent > 60)lcd.write(255);
+  if(waterLevelPercent > 40)lcd.write(255);
   
-
   //TODO: Find bug why text in third row is shifted to the right  }
   lcd.setCursor(10, 3);
   lcd.print(' ');
-  if(waterLevelPercent > 80)lcd.write(255);
-  
+  if(waterLevelPercent > 20)lcd.write(255);  
 }
 
 int measureWaterTankPercentage()
@@ -171,7 +168,7 @@ int convertToPercent(int value, int airValue, int waterValue)
   return map(soilMoistureValue, airValue, waterValue, 0, 100);
 }
 
-String CreateLogInfo(int measuredValue, int percent)
+String createPercentageText(int percent)
 {    
   //Always return 000% for same length to override chars on display correct 
   if(percent >= 100) return "100%";
@@ -179,3 +176,14 @@ String CreateLogInfo(int measuredValue, int percent)
   else if(percent < 10) return "  " + String(percent) +"%";
   return " " + String(percent) +"%";
 }
+
+String adjustNameTo8Chars(String s)
+{
+  if(s.length() > 8) return s.substring(0,8);
+  else
+  {
+    for(int i = s.length(); i <= 8; i++)s += ' ';        
+    return s;
+  }
+}
+  

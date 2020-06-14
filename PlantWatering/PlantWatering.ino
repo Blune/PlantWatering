@@ -17,13 +17,13 @@ const int WaterValueSensor1 = 565;
 const int SoilMoistureForWatering1 = 30; //basil
 
 //Sensor 2
-const int SoilMoistureSensor2Pin = A3;
+const int SoilMoistureSensor2Pin = A1;
 const int AirValueSensor2 = 570;   
 const int WaterValueSensor2 = 411;  
 const int SoilMoistureForWatering2 = 30; //basil
 
 //Sensor 3
-const int SoilMoistureSensor3Pin = A3;
+const int SoilMoistureSensor3Pin = A2;
 const int AirValueSensor3 = 570;   
 const int WaterValueSensor3 = 411;  
 const int SoilMoistureForWatering3 = 30; //basil

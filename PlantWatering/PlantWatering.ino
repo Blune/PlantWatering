@@ -1,3 +1,7 @@
+//Arduino Pro Mini 328P 3.3V
+
+#include <LowPower.h>
+
 // LiquidCrystal_I2C.h: https://github.com/johnrickman/LiquidCrystal_I2C
 #include <Wire.h> // Library for I2C communication
 #include <LiquidCrystal_I2C.h> // Library for LCD
@@ -19,8 +23,8 @@ const int SoilMoistureForWatering1 = 30; //basil
 //Sensor 2
 const int SoilMoistureSensor2Pin = A1;
 const int AirValueSensor2 = 570;   
-const int WaterValueSensor2 = 411;  
-const int SoilMoistureForWatering2 = 30; //basil
+const int WaterValueSensor2 = 465;  
+const int SoilMoistureForWatering2 = 30; //minze
 
 //Sensor 3
 const int SoilMoistureSensor3Pin = A2;
@@ -29,15 +33,15 @@ const int WaterValueSensor3 = 411;
 const int SoilMoistureForWatering3 = 30; //basil
 
 //Sensor 4
-const int SoilMoistureSensor4Pin = A3;
-const int AirValueSensor4 = 570;   
-const int WaterValueSensor4 = 411; 
-const int SoilMoistureForWatering4 = 30; //basil 
+const int SoilMoistureSensor4Pin = A7;
+const int AirValueSensor4 = 985;   
+const int WaterValueSensor4 = 520; 
+const int SoilMoistureForWatering4 = 30; //wurst 
 
 //Sensor 5 Water level check
 const int WaterLevelSensorPin = A6;
-const int AirValueWaterLevel = 883;
-const int WaterValueWaterLevel = 470;
+const int AirValueWaterLevel = 730;
+const int WaterValueWaterLevel = 543;
 const int MinWaterPercentage = 25; //25% of water tank
 
 //Waterpump
@@ -74,6 +78,7 @@ void setup()
 
 void loop() 
 {  
+  Serial.println("Start");
   writeToDisplay(0,0, checkPlant("Basil", SoilMoistureSensor1Pin, AirValueSensor1, WaterValueSensor1, PinPump1, SoilMoistureForWatering1)); 
   writeToDisplay(0,1, checkPlant("Minze", SoilMoistureSensor2Pin, AirValueSensor2, WaterValueSensor2, PinPump2, SoilMoistureForWatering2)); 
     //TODO: Find bug why text in third row is shifted to the right
@@ -81,14 +86,14 @@ void loop()
   writeToDisplay(-4,3, checkPlant("Wurst", SoilMoistureSensor4Pin, AirValueSensor4, WaterValueSensor4, PinPump4, SoilMoistureForWatering4));  
   
   writeWaterLevelToDisplay();
-  delay(sleep);
+  delay(30000);
 }
 
-String checkPlant(String name, int pin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
+String checkPlant(String name, int soilMoisturePin, int airValue, int waterValue, int pinPump, int moisturePercentForWatering)
 {
-  soilMoistureValue = readSensor(SoilMoistureSensor1Pin);
+  soilMoistureValue = readSensor(soilMoisturePin);
   soilMoisturePercent = convertToPercent(soilMoistureValue, airValue, waterValue);
-  Serial.println("Measured on " + name + ": " + createPercentageText(soilMoisturePercent));  
+  Serial.println("Measured on " + name + ": " + createPercentageText(soilMoisturePercent) + "("+ String(soilMoistureValue) + ")");  
 
   if(soilMoisturePercent < moisturePercentForWatering && isEnoughWaterInTank()) activatePump(pinPump);
 
@@ -97,8 +102,8 @@ String checkPlant(String name, int pin, int airValue, int waterValue, int pinPum
 
 void activatePumpFor500ms(int pinPump)
 {
-    Serial.println("Moisture too low. Started water pump for 2 seconds on pin " + String(pinPump));
-    activatePump(pinPump);    
+    Serial.println("Moisture too low. Started water pump for 500 milliseconds on pin " + String(pinPump));
+    //activatePump(pinPump);    
     delay(500);
     deactivatePump(pinPump);    
     Serial.println("Stopped pump");  
@@ -107,7 +112,7 @@ void activatePumpFor500ms(int pinPump)
 bool isEnoughWaterInTank()
 {
   int waterLevelPercent = measureWaterTankPercentage();
-  Serial.println("measured water level: "+ String(waterLevelPercent)+ "% and min set to "+ String(MinWaterPercentage) + "%" );
+  Serial.println("measured water level: "+ String(waterLevelPercent)+ "% and minimun is configuraed at "+ String(MinWaterPercentage) + "%" );
   return waterLevelPercent >= MinWaterPercentage;
 }
 
@@ -136,7 +141,7 @@ void writeWaterLevelToDisplay()
   lcd.print(' ');
   if(waterLevelPercent > 40)lcd.write(255);
   
-  //TODO: Find bug why text in third row is shifted to the right  }
+  //TODO: Find bug why text in third row is shifted to the right
   lcd.setCursor(10, 3);
   lcd.print(' ');
   if(waterLevelPercent > 20)lcd.write(255);  
@@ -145,6 +150,7 @@ void writeWaterLevelToDisplay()
 int measureWaterTankPercentage()
 {
   waterLevel = readSensor(WaterLevelSensorPin);
+  Serial.println("measured water sensor: "+ String(waterLevel));
   return convertToPercent(waterLevel, AirValueWaterLevel, WaterValueWaterLevel);  
 }
 
@@ -155,7 +161,7 @@ int readSensor(int pin)
 
 void activatePump(int pin)
 {
-  digitalWrite(pin, HIGH);
+  //digitalWrite(pin, HIGH);
 }
 
 void deactivatePump(int pin)
@@ -165,7 +171,7 @@ void deactivatePump(int pin)
 
 int convertToPercent(int value, int airValue, int waterValue)
 {
-  return map(soilMoistureValue, airValue, waterValue, 0, 100);
+  return map(value, airValue, waterValue, 0, 100);
 }
 
 String createPercentageText(int percent)
